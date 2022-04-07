@@ -567,3 +567,103 @@ int int_size_is_32() {
 }
 ```
 
+#### 2.68
+
+```C
+int lower_one_mask(int n) {
+    return (((1 << (n-1)) - 1) << 1) + 1;
+}
+```
+
+#### 2.69
+
+```C
+unsigned rotate_left(unsigned x, int n) {
+    int w = sizeof(x) << 3;
+    unsigned left = x << n;
+    unsigned right = x >> (w-n);
+    return left | right;
+}
+```
+
+#### 2.70
+
+```C
+int fits_bits(int x, int n) {
+    int max = (1 << n-1) - 1;
+    int min = -(1 << (n-1));
+    return x <= max && x >= min;
+}
+```
+
+#### 2.71
+
+A.
+
+不是符号扩展
+
+B.
+
+```C
+int xbyte(packed_t word, int bytenum) {
+    return (int)word << ((3-bytenum)<<3) >> 24;
+}
+```
+
+#### 2.72
+
+A.
+
+运算结果被转换成size_t格式（unsigned），无论如何都大于等于0
+
+B.
+
+```C
+void copy_int(int val, void *buf, int maxbytes) {
+    if (maxbytes-(int)sizeof(val) >= 0)
+        memcpy(buf, (void *) &val, sizeof(val));
+}
+```
+
+#### 2.73
+
+我的答案
+
+```C
+int saturating_add(int x, int y) {
+    int w = sizeof(int) << 3;
+    int result = x + y, INT_MAX = (1 << (w-1)) - 1, INT_MIN = 1 << (w-1);
+    int p_of = x>0 && y>0 && result <= 0, n_of = x<0 && y<0 && result >= 0, of = p_of || n_of;
+    int p_mask = p_of << (w-1) >> (w-1), n_mask = n_of << (w-1) >> (w-1), re_mask = (!of) << (w-1) >> (w-1);
+    return (result & re_mask) | (p_mask & INT_MAX) | (n_mask & INT_MIN);
+}
+```
+
+问题1：太过繁琐
+
+问题2：使用了比较运算（不过可以通过取最高位的方式代替，不影响）
+
+看一下大佬的解法
+
+```C
+int saturating_add(int x,int y){
+    int sum = x+y;
+    int mask = INT_MIN;
+    int pos_over = !(x&mask)&&!(y&mask)&&(sum&mask);
+    int neg_over = (x&mask)&&(y&mask)&&!(sum&mask);
+    (pos_over&&(sum=INT_MAX))||(neg_over&&(sum=INT_MIN));//这段是求教大佬得到的，实在精妙
+    return sum;
+}
+```
+
+非常巧妙的是在不允许用条件语句的情况下，用了一个逻辑表达式的短路求值达到了条件语句的效果
+
+#### 2.74
+
+```C
+int tsub_ok(int x,int y){
+    int sub = x-y;
+    return !((x>0&&y<0&&sub<0)||(x<0&&y>0&&sub>0));
+}
+```
+
