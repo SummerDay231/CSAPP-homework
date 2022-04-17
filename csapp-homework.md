@@ -855,3 +855,149 @@ C.
 | -∞                    |       |    |   |    |      |
 | 十六进制表示为3BB0的数 | **3BB0**     |    |   |    |      |
 
+## 第三章 程序的机器级表示
+### 3.4 访问信息
+#### 练习题3.1
+
+| 操作数         | 值    |
+|----------------|-------|
+| %rax           | 0x100 |
+| 0x104          | 0xAB  |
+| $0x108         | 0x108 |
+| (%rax)         | 0xFF  |
+| 4(%rax)        | 0xAB  |
+| 9(%rax,%rdx)   | 0x11  |
+| 260(%rcx,%rdx) | 0x13  |
+| 0xFC(,%rcx,4)  | 0xFF  |
+| (%rax,%rdx,4)  | 0x11  |
+  
+#### 练习题3.2
+
+| 指令 | 操作数               |
+|------|----------------------|
+| movl | %eax, (%rsp)         |
+| movw | (%rax), %dx          |
+| movb | $0xFF, %bl           |
+| movb | (%rsp, %rdx, 4), %dl |
+| movq | (%rdx), %rax         |
+| movw | %dx, (%rax)          |
+
+#### 练习题3.3
+
+| 指令                 | 错误原因                               |
+|----------------------|----------------------------------------|
+| movb $0xF, (%ebx)    | 必须使用64位寄存器指定内存地址         |
+| movl %rax, (%rsp)    | 指令指明的操作数长度与寄存器长度不匹配 |
+| movw (%rax), 4(%rsp) | 不能从内存传送到内存                   |
+| movb %al, %sl        | 没有sl寄存器                           |
+| movq %rax, $0x123    | 不能以立即数作为目标地址               |
+| movl %eax, %rdx      | 指令指明的操作数长度与寄存器长度不匹配 | 
+| movb %si, (%rbp)     | 指令指明的操作数长度与寄存器长度不匹配 |
+
+#### 练习题3.4
+
+| src_t | dest_t | 指令                                   |
+|-------|--------|----------------------------------------|
+| long  | long   | movq (%rdi), %rax<br>movq %rax, (%rsi) |
+| char | int | movsbl (%rdi), %eax<br>movl %eax, (%rsi)<br>(注：char大多数情况下默认有符号，但是也看具体编译器实现，C标准无规定) |
+| char  | unsigned   | movsbl (%rdi), %eax<br>movl %eax, (%rsi) |
+| unsigned char  | long | movzbq (%rdi), %rax<br>movq %rax, (%rsi) |
+| int  | char  | movl (%rdi), %eax<br>movb %al, (%rsi) |
+| unsigned  | unsigned char   | movl (%rdi), %eax<br>movb %al, (%rsi) |
+| char  | short   | movsbw (%rdi), %ax<br>movw %ax, (%rsi) |
+
+#### 练习题3.5
+
+| decode1           |                 |
+|-------------------|-----------------|
+| movq (%rdi), %r8  | temp1 = xp      |
+| movq (%rsi), %rcx | temp2 = yp      |
+| movq (%rdx), %rax | ret = zp        |
+| movq %r8, (%rsi)  | yp = temp1(=xp) |
+| movq %rcx, (%rdx) | zp = temp2(=yp) |
+| movq %rax, (%rdi) | xp = ret(=zp)   |
+| ret               |                 |
+
+```C
+void decode1(long *xp, long *yp, long *zp) {
+    long t1 = *xp;
+    long t2 = *yp;
+    long t3 = *zp;
+    *yp = t1;
+    *zp = t2;
+    *xp = t3;
+    return;
+}
+```
+
+### 3.5 算术和逻辑操作
+
+#### 练习题3.6
+| 表达式                      | 结果   |
+|-----------------------------|--------|
+| leaq 6(%rax), %rdx          | x+6    |
+| leaq (%rax, %rcx), %rdx     | x+y    |
+| leaq (%rax, %rcx, 4), %rdx  | x+4*y  |
+| leaq 7(%rax, %rax, 8), %rdx | 9*x+7  |
+| leaq 0xA(,%rcx, 4), %rdx    | 4*y+10 |
+| leaq 9(%rax, %rcx, 2), %rdx | x+2*y+9|
+
+#### 练习题3.7
+
+| scale2                     |                     |
+|----------------------------|---------------------|
+| leaq (%rdi, %rdi, 4), %rax | temp1 = 5*x         |
+| leaq (%rax, %rsi, 2), %rax | temp1 = temp1 + 2*y |
+| leaq (%rax, %rdx, 8), %rax | temp1 = temp1 + 8*z |
+| ret                        | return temp1        |
+
+```C
+long t = 5*x + 2*y + 8*z;
+```
+#### 练习题3.8
+
+| 指令                       | 目的  | 值    |
+|----------------------------|-------|-------|
+| addq %rcx, (%rax)          | 0x100 | 0x100 |
+| subq %rdx, 8(%rax)         | 0x108 | 0xA8  |
+| imulq $16, (%rax, %rdx, 8) | 0x118 | 0x110 |
+| incq 16(%rax)              | 0x110 | 0x14  |
+| decq %rcx                  | %rcx  | 0x0   |
+| subq %rdx, %rax            | %rax  | 0xFD  |
+
+#### 练习题3.9
+
+salq $4, %rax
+sarq %cl, %rax
+
+#### 练习题3.10
+
+| arith2:         |                 |
+|-----------------|-----------------|
+| orq %rsi, %rdi  | x = x^y         |
+| sarq $3, %rdi   | x = x >> 3      |
+| notq %rdi       | x = ~x          |
+| movq %rdx, %rax | temp = z        |
+| subq %rdi, %rax | temp = temp - x |
+| ret             |                 |
+
+```C
+long arith2(long x, long y, long z) {
+    long t1 = x^y;
+    long t2 = t1 >> 3;
+    long t3 = ~t2;
+    long t4 = z-t3;
+    return t4;
+}
+```
+
+#### 练习题3.11
+
+A. 
+把rdx寄存器置零
+
+B.
+movq $0, %rdx
+
+C. 
+
