@@ -1001,3 +1001,196 @@ movq $0, %rdx
 
 C. 
 
+#### 练习题3.12
+
+| uremdiv |              | 
+|---------|--------------|
+| movq    | %rdx, %r8    |
+| movq    | %rdi, %rax   |
+| movl    | $0, %edx     |
+| divq    | %rsi         |
+| movq    | %rax, (%r8)  |
+| movq    | %rdx, (%rcx) |
+
+### 3.6 控制
+#### 练习题3.13
+
+A. 32位有符号数 int
+B. 16位有符号数 short
+C. 8位无符号数 unsigned char
+D. 64位数 long unsigned long (订正：或者指针)
+
+#### 练习题3.14
+
+A. 64位有符号数 long
+B. 16位 short unsigned short
+C. 8位无符号数 unsigned char
+D. 32位有符号数 int 
+
+#### 练习题3.15
+
+A. 0x4003fc+0x02=0x4003fe
+
+B. 0x400431+(-12) = 0x400425
+
+C. addr(pop)+0x02=0x400547
+
+addr(pop) = 0x400545
+
+addr(ja) = addr(pop)-2 = 0x400543
+
+D. 0x4005ed+(0xffffff73=-0x8d=-141)=0x400560
+
+#### 练习题3.16
+A.
+```C
+void goto_cond(long a, long b) {
+    if (p == 0)
+        goto p_nz;
+    if (p >= a)
+        goto p_nz;
+    *p = a;
+ p_nz:
+    return;
+}
+```
+
+B. 因为条件语句中包含两个条件，且包含短路求值
+
+#### 练习题3.17
+
+A.
+```C
+long gotodiff_se(long x, long y) {
+    long result;
+    if (x < y)
+        goto x_lt_y;
+    lt_cnt++;
+    result = y - x;
+    return 
+    result;
+ x_lt_y:
+    ge_cnt++;
+    result = x - y;
+    return result;
+}
+```
+
+B. 对没有else的语句友好
+
+#### 练习题3.18
+
+| test:    |                    |                       |
+|----------|--------------------|-----------------------|
+| leaq     | (%rdi, %rsi), %rax | temp1 = x+y           |
+| addq     | %rdx, %rax         | temp1 = temp1+z       |
+| cmpq     | $-3, %rdi          | comp x and -3         |
+| jge      | .L2                | if (x >= -3) goto .L2 |
+| cmpq     | %rdx, %rsi         | comp y and z          |
+| jge      | .L3                | if (y >= z) goto .L3  |
+| movq     | %rdi, %rax         | temp1 = x             |
+| imulq    | %rsi, %rax         | temp1 = temp1*y       |
+| ret      |                    | return                |
+| **.L3:** |                    |                       |
+| movq     | %rsi, %rax         | temp1 = y             |
+| imulq    | %rdx, %rax         | temp1 = z * temp1     |
+| ret      |                    | return                |
+| **.L2:** |                    |                       |
+| cmpq     | $2, %rdi           | comp x and 2          |
+| jle      | .L4                | if (x <= 2) goto .L4  |
+| movq     | %rdi, %rax         | temp1 = x             |
+| imulq    | %rdx, %rax         | temp1 = temp1*z       |
+| **.L4:** |                    |                       |
+| rep; ret |                    | return                |
+
+```C
+long test(long x, long y, long z) {
+    long val = x + y + z;
+    if (x < -3) {+
+    
+        if (y < z)
+            val = x * y;
+        else
+            val = y * z;
+    } else if (x > 2)
+        val = x * z;
+    return val;
+}
+```
+
+#### 练习题3.19
+
+A. 30
+
+B. 46
+
+#### 练习题3.20
+A. /
+
+B.
+| arith: |               |                       |
+|--------|---------------|-----------------------|
+| leaq   | 7(%rdi), %rax | temp1 = x + 7         |
+| testq  | %rdi, %rdi    | test x & x            |
+| cmovns | %rdi, %rax    | if (x >= 0) temp1 = x |
+| sarq   | $3, %rax      | temp1 = temp1 >> 3    |
+| ret    |               | return                |
+
+#### 练习题3.21
+
+| test:  |                    |                           |
+|--------|--------------------|---------------------------|
+| leaq   | 0(, %rdi, 8), %rax | temp1 = 8*x               |
+| testq  | %rsi, %rsi         | test y & y                |
+| jle    | .L2                | if (y <= 0) goto .L2      |
+| movq   | %rsi, %rax         | temp1 = y                 |
+| subq   | %rdi, %rax         | temp1 = temp1 - x         | 
+| movq   | %rdi, %rdx         | temp2 = x                 |
+| andq   | %rsi, %rdx         | temp2 = temp2 & y         |
+| cmpq   | %rsi, %rdi         | comp x, y                 |
+| cmovge | %rdx, %rax         | if (x >= y) temp1 = temp2 |
+| ret    |                    | return                    |
+| .L2:   |                    |                           |
+| addq   | %rsi, %rdi         | x = x + y                 |
+| cmpq   | $-2, %rsi          | comp y and -2             |
+| cmovle | %rdi, %rax         | if (y <= -2) temp1 = x    | 
+| ret    |                    | return                    |
+
+```C
+long test(long x, long y) {
+    long val = 8 * x;
+    if (y > 0) {
+        if (x < y) 
+            val = y - x;
+        else
+            val = x & y;
+    } else if (y <= -2)
+        val = x + y;
+    return val;
+}
+```
+
+#### 练习题3.22
+
+略
+
+#### 练习题3.23
+
+| dw_loop: |                     |                       |
+|----------|---------------------|-----------------------|
+| movq     | %rdi, %rax          | temp1 = x             | 
+| movq     | %rdi, %rcx          | y = x                 |
+| imulq    | %rdi, %rcx          | y *= x                |
+| leaq     | (%rdi, %rdi), %rdx  | n = 2 * x             |
+| .L2:     |                     |                       |
+| leaq     | 1(%rcx, %rax), %rax | temp1 = temp1 + y + 1 |
+| subq     | $1, %rdx            | n -= 1                |
+| testq    | %rdx, %rdx          | test n & n            |
+| jg       | .L2                 | if (n > 0) goto .L2   |
+| rep; ret |                     | return                |
+
+A. x->%rax , y->%rcx, n->%rdx
+
+B. 没有对p的直接操作，所以对p的内容操作都可以变为对x的操作；(*p)++变为x+1并与上一步运算合并。
+
+C. 见上。
