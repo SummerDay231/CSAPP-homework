@@ -1194,3 +1194,230 @@ A. x->%rax , y->%rcx, n->%rdx
 B. 没有对p的直接操作，所以对p的内容操作都可以变为对x的操作；(*p)++变为x+1并与上一步运算合并。
 
 C. 见上。
+
+#### 练习题3.24
+
+| loop_while: |                    |                     |
+|-------------|--------------------|---------------------|
+| movl        | $1, %eax           | temp1 = 1           |
+| jmp         | .L2                | goto .L2            |
+| .L3:        |                    |                     |
+| leaq        | (%rdi, %rsi), %rdx | temp2 = a + b       |
+| imulq       | %rdx, %rax         | temp1 *= temp2      |
+| addq        | $1, %rdi           | a--                 |
+| .L2:        |                    |                     |
+| cmpq        | %rsi, %rdi         | comp a and b        |
+| jl          | .L3                | if (a < b) goto .L3 |
+| rep;ret     |                    | return              |
+
+```C
+long loop_while(long a, long b) {
+    long result = 1;
+    while (a < b) {
+        result = result * (a + b);
+        a = a + 1;
+    }
+    return result;
+}
+```
+
+#### 练习题3.25
+
+| loop_while2: |            |                      |
+|--------------|------------|----------------------|
+| testq        | %rsi, %rsi | test b               |
+| jle          | .L8        | if (b <= 0) goto .L8 |
+| movq         | %rsi, %rax | temp1 = b            |
+| .L7:         |            |                      |
+| imulq        | %rdi, %rax | temp1 *= a           |
+| subq         | %rdi, %rsi | b -= a               |
+| testq        | %rsi, %rsi | test b               |
+| jg           | .L7        | if (b > 0) goto .L7  |
+| rep;ret      |            | return               |
+| .L8:         |            |                      |
+| movq         | %rsi, %rax | temp1 = b            |
+| ret          |            | return               |
+
+```C
+long loop_while2(long a, long b) {
+    long result = b;
+    while (b > 0) {
+        result = a * result;
+        b = b - a;
+    }
+    return result;  
+}
+```
+
+#### 练习题3.26
+
+| fun_a: |            |                      |
+|--------|------------|----------------------|
+| movl   | $0, %rax   | temp1 = 0            |
+| jmp    | .L5        | goto .L5             |
+| .L6    |            |                      |
+| xorq   | %rdi, %rax | temp1 ^= x           |
+| shrq   | %rdi       | x >>= 1              |
+| .L5:   |            |                      |
+| testq  | %rdi, %rdi | test x               |
+| jne    | .L6        | if (x != 0) goto .L6 |
+| andl   | $1, %eax   | temp1 &= 1           |
+| ret    |            | return               |
+
+A. jump-to-middle
+
+B. 
+```C
+long fun_a(unsigned long x) {
+    long val = 0;
+    while (x != 0) {
+        val = val ^ x;
+        x = x >> 1;
+    }
+    return val & 1;
+}
+```
+
+C.
+确定x位表示中1的个数是奇数还是偶数。
+
+#### 练习题3.27
+
+```C
+long fact_for_gd_toto(long n) {
+    long i = 2;
+    long result = 1;
+    if (i > n)
+        goto done;
+ loop:
+    result *= i;
+    i++;
+    if (i != n)
+        goto loop;
+ done:
+    return result;
+}
+```
+
+#### 练习题3.28
+
+| fun_b:  |            |                           |
+|---------|------------|---------------------------|
+| movl    | $64, %edx  | temp1 = 64                |
+| movl    | $0, $eax   | temp2 = 0                 |
+| .L10:   |            |                           |
+| movq    | %rdi, %rcx | temp3 = x                 |
+| andl    | $1, $ecx   | temp3 &= 1                |
+| addq    | %rax, %rax | temp2 *= 2                |
+| orq     | %rcx, %rax | temp2 \|= temp3           |
+| shrq    | %rdi       | x >>= 1                   |
+| subq    | $1, %rdx   | temp1 -= 1                |
+| jne     | .L10       | if (temp1 != 0) goto .L10 |
+| rep;ret |            | return                    |
+
+A.
+```C
+long fun_b(unsigned long x) {
+    long val = 0;
+    long i;
+    for (i=64; i!=0; --i) {
+        val = (val*2) | (x&1);
+        x = x >> 1;
+    }
+    return val;
+}
+```
+
+B. 显然条件必定满足
+
+C. 倒转x的位表示
+
+#### 练习题3.29
+
+```C
+long sum = 0;
+long i = 0;
+while (i < 10) {
+    if (i&1)
+        continue;
+    sum += i;
+    i++;
+}
+```
+
+导致update-expr没有执行
+
+B. goto语句指向update-expr之前
+
+#### 练习题3.30
+
+A. -1, (0,7), 1, (2, 4), 5
+B. 见上
+
+#### 练习题3.31
+
+| switcher: |                    |                     |
+|-----------|--------------------|---------------------|
+| cmpq      | $7, %rdi           | comp a and 7        |
+| ja        | .L2                | if (a > 7) goto .L2 |
+| jmp       | *.L4(,%rdi, 8)     | goto *jt[index]     |
+| .section  | .rodata            | declare jump table  |
+| .L7:      |                    | case 5              |
+| xorq      | $15, %rsi          | b ^= 15             |
+| movq      | %rsi, %rdx         | c = b               |
+| .L3:      |                    | case 0              |
+| leaq      | 112(%rdx), %rdi    | a = 112 + c         |
+| jmp       | .L6                | goto .L6            |
+| .L5:      |                    | case 2              |
+| leaq      | (%rdx, %rsi), %rdi | a = b + c           |
+| salq      | $2, %rdi           | a <<= 2             |
+| jmp       | .L6                | goto .L6            |
+| .L2       |                    | default             |
+| movq      | %rsi, %rdi         | a = b               |
+| .L6       |                    | done                |
+| movq      | %rdi, (%rcx)       | *dest = b           |
+| ret       |                    | return              |
+
+```C
+void switcher(long a, long b, long c, long *dest) {
+    long val;
+    switch(a) {
+        case 5:
+            c = b ^ 15;
+        case 0:
+            val = c + 112;
+            break;
+        case 2:
+        case 7:
+            val = (b + c) << 2;
+            break;
+        case 4:
+            val = a;
+            break;
+        default:
+            val = b;
+    }
+    *dest = val;
+}
+```
+
+### 3.7 过程
+
+#### 练习题3.32
+
+|      | 指令     |           |      |      |      | 状态值（指令执行前） |          |                  |
+|------|----------|-----------|------|------|------|----------------------|----------|------------------|
+| 标号 | PC       | 指令      | %rdi | %rsi | %rax | %rsp                 | *%rsp    | 描述             |
+| M1   | 0x400560 | callq     | 10   | --   | --   | 0x7fffffffe820       | --       | 调用first(10)    |
+| F1   | 0x400548 | lea       | 10   | --   | --   | 0x7fffffffe818       | 0x400565 | x + 1            |
+| F2   | 0x40054c | sub       | 10   | 11   | --   | 0x7fffffffe818       | 0x400565 | x - 1            |
+| F3   | 0x400550 | callq     | 9    | 11   | --   | 0x7fffffff818        | 0x400565 | call last(9, 11) |
+| L1   | 0x400540 | mov       | 9    | 11   | --   | 0x7fffffff810        | 0x400555 | u                |
+| L2   | 0x400543 | imul      | 9    | 11   | 9    | 0x7fffffff810        | 0x400555 | u*v              |
+| L3   | 0x400547 | retq      | 9    | 11   | 99   | 0x7fffffff810        | 0x400555 | return           |
+| F4   | 0x400555 | repz retq | 9    | 11   | 99   | 0x7fffffff818        | 0x400565 | return           |
+| M2   | 0x400565 | mov       | 9    | 11   | 99   | 0x7fffffff820        | --       | resume           |
+
+#### 练习题3.33
+
+int a, short b, long *u, char *v
