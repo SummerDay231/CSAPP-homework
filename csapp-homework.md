@@ -1457,3 +1457,71 @@ long rfun(unsigned long x) {
 ```
 
 ### 3.8 数组分配和访问
+
+#### 练习题3.36
+
+| 数组 | 元素大小 | 整个数组的大小 | 起始地址 | 元素i      |
+|------|----------|----------------|----------|------------|
+| S    | 2        | 14             | $x_S$    | $x_S$ + 2i |
+| T    | 8        | 24             | $x_T$    | $x_T$ + 8i |
+| U    | 8        | 48             | $x_U$    | $x_U$ + 8i |
+| V    | 4        | 32             | $x_V$    | $x_V$ + 4i |
+| W    | 8        | 32             | $x_W$    | $x_W$ + 8i |
+
+#### 练习题3.37
+
+| 表达式   | 类型   | 值             | 汇编代码                      |
+|----------|--------|----------------|-------------------------------|
+| S + 1    | short* | $x_S$+2        | leaq 2(%rdx), %rax            |
+| S[3]     | short  | M[$x_S$+6]     | movw 6(%rdx), %ax             |
+| &S[i]    | short* | $x_S$+2i       | leaq (%rdx, %rcx, 2), %rax    |
+| S[4*i+1] | short  | M[$x_S$+8*i+2] | movw 2(%rdx, %rcx, 8), %ax    |
+| S+i-5    | short* | $x_S$+2i-10    | leaq -10(%rdx, %rcx, 2), %rax |
+
+#### 练习题3.38
+
+| sum_element |                     |                     |
+|-------------|---------------------|---------------------|
+| leaq        | 0(,%rdi,8), %rdx    | %rdx = 8*i       |
+| subq        | %rdi, %rdx          | %rdx -= i        |
+| addq        | %rsi, %rdx          | %rdx += j        |
+| leaq        | (%rsi,%rsi,4), %rax | %rax = 5*j       |
+| addq        | %rax, %rdi          | %rdi += %rax        |
+| movq        | Q(,%rdi,8), %rax    | %rax = M[Q+8*%rdi]  |
+| addq        | P(,%rdx,8), %rax    | %rax += M[P+8*%rdx] |
+| ret         |                     | return              |
+
+从倒数二三行可知，%rdi = i * N + j, 而%rdx = j * M + i
+
+结合之前的操作可以得出， %rdx = i + 5 * j, %rdi = 7 * i + j
+
+M = 5, N = 7
+
+#### 练习题3.39
+略
+
+#### 练习题3.40
+
+| fix_set_diag |                   |                             |
+|--------------|-------------------|-----------------------------|
+| movl         | $0, %eax          | temp1 = 0                   |
+| .L3          |                   |                             |
+| movl         | %esi, (%rdi,%rax) | M[A+temp1] = val            |
+| addq         | $68， %rax        | temp1 += 68                 |
+| cmpq         | $1088, %rax       | comp temp1 and 1088         |
+| jne          | .L3               | if (temp1 != 1088) goto .L3 |
+| rep;ret      |                   | return                      |
+
+```C
+void fix_set_diag_opt(fix_matrix A, int val) {
+    long len = 0;
+    int *Ptr = A;
+    do {
+        *(Ptr+len) = val;
+        len += N + 1;
+    } while (len != N * (N+1));
+    return;
+}
+```
+
+### 3.9 异质的数据结构
