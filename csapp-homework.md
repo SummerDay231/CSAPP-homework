@@ -1421,3 +1421,39 @@ void switcher(long a, long b, long c, long *dest) {
 #### 练习题3.33
 
 int a, short b, long *u, char *v
+
+#### 练习题3.34
+
+A. a0-a6
+
+B. a7 a8
+ 
+C. 寄存器不够
+
+#### 练习题3.35
+
+| rfun: |            |                          |
+|-------|------------|--------------------------|
+| pushq | %rbx       | save %rbx                |
+| movq  | %rdi, %rbx | %rdi -> %rbx             |
+| movl  | $0, %eax   | %rax = 0                 |
+| testq | %rdi, %rdi | test %rdi                |
+| je    | .L2        | if (%rdi == 0) goto .L2  |
+| shrq  | $2, %rdi   | %rdi >>(L) 2             |
+| call  | rfun       | call rfun recursively    |
+| addq  | %rbx, %rax | %rax += %rbx             |
+| .L2:  |            |                          |
+| popq  | %rbx       | get previouly saved %rbx |
+| ret   |            | return                   |
+
+```C
+long rfun(unsigned long x) {
+    if (x == 0)
+        return 0;
+    unsigned long nx = x >> 2;
+    long rv = rfun(nx);
+    return x + rv;
+}
+```
+
+### 3.8 数组分配和访问
