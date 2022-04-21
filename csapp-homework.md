@@ -1525,3 +1525,155 @@ void fix_set_diag_opt(fix_matrix A, int val) {
 ```
 
 ### 3.9 异质的数据结构
+
+#### 练习题3.41
+
+A.
+
+p: 0
+
+s.x: 8
+
+s.y: 12
+
+next: 16
+
+B. 24
+
+C.  
+
+```C
+void sp_init(struct prob *sp) {
+    sp->s.x = sp->s.y;
+    sp->p = &(sp->s.x);
+    sp->next = sp;
+}
+```
+
+#### 练习题3.42
+
+A.
+| fun:     |               |                        |
+|----------|---------------|------------------------|
+| movl     | $0, %eax      | temp1 = 0              |
+| jmp      | .L2           | goto .L2               |
+| .L3:     |               |                        |
+| addq     | (%rdi), %rax  | temp1 += ptr->v        |
+| movq     | 8(%rdi), %rdi | ptr = ptr->p           |
+| .L2:     |               |                        |
+| testq    | %rdi, %rdi    | test ptr               |
+| jne      | .L3           | if (ptr != 0) goto .L3 |
+| rep; ret |               |                        |
+
+```C
+long fun(struct ELE *ptr) {
+    long val = 0;
+    while (ptr != 0) {
+        val += ptr->v;
+        ptr = ptr->p;
+    }
+    return val;
+}
+```
+
+B.
+
+实现了一个链表，fun对链表的值求和
+
+#### 练习题3.43
+
+| expr               | type  | 代码                                                                     |
+|--------------------|-------|--------------------------------------------------------------------------|
+| up->t1.u           | long  | movq (%rdi), %rax <br>movq %rax, (%rsi)                                  |
+| up->t1.v           | short | movw 8(%rdi), %ax <br> movw %ax, (%rsi)                                  |
+| &up->t1.w          | char* | leaq 10(%rdi), %rax <br> movq %rax, (%rsi)                               |
+| up->t2.a           | int*  | movq %rdi, (%rsi)                                                        |
+| up->t2.a[up->t1.u] | int   | movq (%rdi), %rax <br> movl (%rdi, %rsi, 4), %eax <br> movl %eax, (%rsi) |
+| *up->t2.p          | char  | movq 8(%rdi), %rax <br> movb (%rax), %al <br> movb %al, (%rsi)           |
+
+#### 练习题3.44
+
+A. i:0, c:4, j:8, d:12 16 4
+
+B. i:0, c:4, d:5, j:8 16 8
+
+C. w:0, c:6 10 2
+
+D. w:0, c:16 40 8
+
+E. a:0, t:24 40 8
+
+#### 练习题3.45
+
+A.
+
+| 字段     | 大小/对齐要求 | 偏移量-结束 |
+|----------|---------------|-------------|
+| char *a  | 8             | 0-7         |
+| short b  | 2             | 8-9         | 
+| double c | 8             | 16-23       |              
+| char d   | 1             | 24-24       |         
+| float e  | 4             | 28-31       |
+| char f   | 1             | 32-32       |
+| long g   | 8             | 40-47       |
+| int h    | 4             | 48-51       |
+
+B. 52字节（对齐要求为8，故实际占用为56字节）
+
+C.
+
+| 字段     | 大小/对齐要求 | 偏移量-结束 |
+|----------|---------------|-------------|
+| char *a  | 8             | 0-7         |
+| double c | 8             | 8-15       |              
+| long g   | 8             | 16-23       |
+| float e  | 4             | 24-27       |
+| int h    | 4             | 28-31       |
+| short b  | 2             | 32-33       | 
+| char d   | 1             | 34-34       |         
+| char f   | 1             | 35-35       |
+
+总大小为36字节，实际占用40字节
+
+### 3.10 在机器级程序中将控制与数据结合起来
+
+#### 练习题3.46
+略
+
+#### 练习题3.47
+
+A. 0x2000 = 8192 字节
+
+B. 8192 / 128 = 64
+
+#### 练习题3.48
+
+A. 
+
+无保护的代码中：v在偏移量24位置，buf在偏移量0位置
+
+有保护的代码中：v在偏移量24位置，buf在偏移量16位置，canary在偏移量40位置
+
+#### 练习题3.49
+
+A. 
+
+temp1 = 8*n + 22
+
+temp1 = temp1 & 0xFFF...F0 （最后四位置零）
+
+s2 = s1 - temp1
+
+B.
+
+temp1 = s2 + 7
+
+temp1 = temp1 >>(L) 3
+
+以上两条等于整除8并向零取整
+
+temp2 = 8 * temp1
+
+以上三条等价于把temp1向下取为8的倍数
+
+p= temp2
