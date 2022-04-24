@@ -1677,3 +1677,146 @@ temp2 = 8 * temp1
 以上三条等价于把temp1向下取为8的倍数
 
 p= temp2
+
+### 3.11 浮点代码
+
+#### 练习题3.50
+
+| fcvt2:     |                     |                        |
+|------------|---------------------|------------------------|
+| movl       | (%rsi), %eax        | i = *ip                |
+| vmovss     | (%rsi), %xmm0       | f = *fp                |
+| vcvttsd2si | (%rdx), %r8d        | temp1 = (int) *dp      |
+| movl       | %r8d, (%rdi)        | *ip = temp1            |
+| vcvtsi2ss  | %eax, %xmm1, %xmm1  | temp2 = (float) i      |
+| vmovss     | %xmm1, (%rsi)       | *fp = temp2            |
+| vcvtsi2sdq | %rcx, %xmm1, %xmm1  | temp2 = (double) l     |
+| vmovsd     | %xmm1, (%rdx)       | *dp = temp2            |
+| vunpcklps  | %xmm0, %xmm0, %xmm0 |                        |
+| vcvtps2pd  | %xmm0, %xmm0        | temp1 = (double) temp1 |
+
+val1 = *dp
+
+val2 = i
+
+val3 = l
+
+val4 = f
+
+#### 练习题3.51
+
+| $T_x$  | $T_y$  | 指令                                               |
+|--------|--------|----------------------------------------------------|
+| long   | double | vcvtsi2sdq %rdi, %xmm0                             |
+| double | int    | vcvttsd2si %xmm0, %eax                             |
+| double | float  | vmovddup %xmm0, %xmm0 <br> vcvtpd2psx %xmm0, %xmm0 |
+| long   | float  | vcvtsi2ssq %rdi, %xmm0, %xmm0                      |
+| float  | long   | vcvttss2siq %xmm0, %rax                            |
+
+#### 练习题3.52
+
+A. a: %xmm0, b: %rdi, c： %xmm1, d: %esi
+
+B. a: $edi, b: %rsi, c: %rdx, d: %rcx
+
+C. a: %rdi, b: %xmm0, c: %esi, d: %xmm1
+
+D. a: %xmm0, b: %rdi, c: %xmm1, d: %xmm2
+
+#### 练习题3.53
+
+| funct1:    |                     |                                        |
+|------------|---------------------|----------------------------------------|
+| vcvtsi2ssq | %rsi, %xmm2, %xmm2  | ftmp1 = (float) iarg2, iarg2_t is long |
+| vaddss     | %xmm0, %xmm2, %xmm0 | farg1 += ftmp1, farg1_t is float       |
+| vcvtsi2ss  | %edi, %xmm2, %xmm2  | ftmp1 = (float) iarg1, iarg1_t is int  |
+| vdivss     | %xmm0, %xmm2, %xmm0 | farg1 = ftmp1 / farg1                  |
+| vunpcklps  | %xmm0, %xmm0, %xmm0 |                                        |
+| vcvtps2pd  | %xmm0, %xmm0        | farg1 = (double) farg1                 |
+| vsubsd     | %xmm1, %xmm0, %xmm0 | farg1 -= farg2, farg2_t is double      |
+| ret        |                     | return farg1                           |
+
+p: iarg1(float)
+q, r: iarg2(long), farg1(float)
+s: farg2(double)
+
+#### 练习题3.54
+
+| funct2:     |                     |                    |
+|-------------|---------------------|--------------------|
+| vcvtsi2ss   | %edi, %xmm2, %xmm2  | ftmp1 = (float) x  |
+| vmulss      | %xmm1, %xmm2, %xmm1 | y = y * ftmp1      |
+| vunpcklps   | %xmm1, %xmm1, %xmm1 |                    |
+| vcvtps2pd   | %xmm1, %xmm2        | ftmp1 = (double) y |
+| vcvtssi2sdq | %rsi, %xmm1, %xmm1  | y = (double) z     |
+| vdivsd      | %xmm1, %xmm0, %xmm0 | w /= y             |
+| vsubsd      | %xmm0, %xmm2, %xmm0 | w = ftmp1 - w      |
+| ret         |                     | return             |
+
+```C
+double funct2(double w, int x, float y, long z) {
+    return y * x - w / z;
+}
+```
+
+#### 练习题3.55
+
+略
+
+#### 练习题3.56
+
+A.
+
+%xmm1 = 7F FF FF FF FF FF FF FF
+
+%xmm0 = %xmm0 & %xmm1
+
+把符号位置零，即取绝对值
+
+B.
+
+把浮点数寄存器置零
+
+C.
+
+%xmm1 = 80 00 00 00 00 00 00 00
+
+%xmm0 = %xmm0 ^ %xmm1
+
+浮点数取负0
+
+#### 练习题3.57
+
+略
+
+### 家庭作业
+
+#### 3.58
+
+| decode2: |            |              |
+|----------|------------|--------------|
+| subq     | %rdx, %rsi | y -= z       |
+| imulq    | %rsi, %rdi | x *= y       |
+| movq     | %rsi, %rax | temp1 = y    |
+| salq     | $63, %rax  | temp1 <<= 63 |
+| sarq     | $63, %rax  | temp1 >>= 63 |
+| xorq     | %rdi, %rax | temp1 ^= x   |
+| ret      |            | return       |
+
+```C
+long decode2(long x, long y, long z) {
+    long temp1 = y - z;
+    temp1 = (temp1 << 63 >> 63) ^ (x * temp1);
+    return temp1;
+}
+```
+
+#### 3.59
+
+| store_prod: |            |          |
+|-------------|------------|----------|
+| movq        | %rdx, %rax | tmp1 = y |
+| cqto        |            | 符号扩展 |
+| movq | %rsi, %rcx | tmp2 = x |
+| sarq | $63, %rcx | tmp2 >>= 63 |
+|imulq | %rax, %rcx | tmp2 *= %rax | 
