@@ -1813,10 +1813,400 @@ long decode2(long x, long y, long z) {
 
 #### 3.59
 
-| store_prod: |            |          |
-|-------------|------------|----------|
-| movq        | %rdx, %rax | tmp1 = y |
-| cqto        |            | 符号扩展 |
-| movq | %rsi, %rcx | tmp2 = x |
-| sarq | $63, %rcx | tmp2 >>= 63 |
-|imulq | %rax, %rcx | tmp2 *= %rax | 
+| store_prod: |               |                                                                   |
+|-------------|---------------|-------------------------------------------------------------------|
+| movq        | %rdx, %rax    | yl = y                                                            |
+| cqto        |               | 把%rdx中的y符号扩展后存放于%rdx:%rax，即%rdx为$y_h$，%rax为$y_l$  |
+| movq        | %rsi, %rcx    | xh = x                                                            |
+| sarq        | $63, \%rcx    | xh >>= 63，类似的操作，对x进行符号扩展，\%rcx为$x_h$, %rsi为$x_l$ |
+| imulq       | %rax, %rcx    | xh *= yl                                                          |
+| imulq       | %rsi, %rdx    | yh *= xl                                                          |
+| addq        | %rdx, %rcx    | xh += yh(xh = xh\*yl+xl*yh)                                       |
+| mulq        | %rsi          | [yh:yl] = yl * xl(无符号乘法)                                     |
+| addq        | %rcx, %rdx    | yh += xh                                                          |
+| movq        | %rax, (%rdi)  | \*(long*)dest = yl                                                |
+| movq        | %rdx, 8(%rdi) | \*(long*)(dest+1) = yh                                            |
+
+
+$$
+x = 2^{64} * x_h + x_l \\
+y = 2^{64} * y_h + y_l \\
+x * y = 2^{128} * x_h * y_h + 2^{64} * (x_h * y_l + x_l * y_h) + x_l*y_l \\
+p = 2^{64} * p_h + p_l \\
+p_h = x_h * y_l + x_l * y_h + (x_l*y_l)_h\\
+p_l = (x_l*y_l)_l
+$$
+
+#### 3.60
+
+| loop:    |            |                         |
+|----------|------------|-------------------------|
+| movl     | %esi, %ecx | tmp1 = n                |
+| movl     | $1, %edx   | tmp2 = 1                |
+| movl     | $0, %eax   | result = 0              |
+| jmp      | .L2        | goto .L2                |
+| .L3:     |            |                         |
+| movq     | %rdi, %r8  | tmp3 = x                |
+| andq     | %rdx, %r8  | tmp3 &= (long)tmp2      |
+| orq      | %r8, %rax  | result \|= tmp3         |
+| salq     | %cl, %rdx  | tmp2 <<= (char) tmp1    |
+| .L2:     |            |                         |
+| testq    | %rdx, %rdx | test tmp2               |
+| jne      | .L3        | if (tmp2 != 0) goto .L3 |
+| rep; ret |            | return                  |
+
+A. x in %rdi, n in %esi, result in %rax, mask in %rdx
+
+B. result = 0, mask = 1
+
+C. mask != 0
+
+D. mask <<= n
+
+E. result |= mask
+
+F.
+
+```C
+long loop(long x, int n) {
+    long result = 0;
+    long mask;
+    for (mask = 1; mask != 0; mask <<= n) {
+        result |= (mask & x);
+    }
+    return result;
+}
+```
+
+#### 3.61
+
+```C
+long cread_alt(long* xp) {
+    return !xp ? 0 : *xp;
+}
+```
+
+#### 3.62
+
+|      |              |            |
+|------|--------------|------------|
+| .L8: |              | MODE E     |
+| movl | $27, %eax    | res = 27   |
+| ret  |              | return     |
+| .L3: |              | MODE A     |
+| movq | (%rsi), %rax | res = *p2  |
+| movq | (%rdi), %rdx | tmp = *p1  |
+| movq | %rdx, (%rsi) | *p2 = tmp  |
+| ret  |              | return     |
+| .L5: |              | MODE B     |
+| movq | (%rdi), %rax | res = *p1  |
+| addq | (%rsi), %rax | res += *p2 |
+| movq | %rax, (%rdi) | *p1 = res  |
+| ret  |              | return     |
+| .L6: |              | MODE C     |
+| movq | $59, (%rdi)  | *p1 = 59   |
+| movq | (%rsi), %rax | res = *p2  |
+| ret  |              | return     |
+| .L7: |              | MODE D     |
+| movq | (%rsi), %rax | res = *p2  |
+| movq | %rax, (%rdi) | *p1 = res  |
+| movl | $27, %eax    | res = 27   |
+| ret  |              | return     |
+| .L9: |              | default    |
+| movl | $12, %eax    | res = 12   |
+| ret  |              | return     |
+
+```C
+typedef enum {MODE_A, MODE_B, MODE_C, MODE_D, MODE_E} mode_t;
+
+long switch3(long *p1, long *p2, mode_t action)
+{
+    long result = 0;
+    switch(action) {
+        case MODE_A:
+            result = *p2;
+            *p2 = *p1;
+            break;
+        case MODE_B:
+            result = *p1 + *p2;
+            *p1 = result;
+            break;
+        case MODE_C:
+            *p1 = 59;
+            result = *p2;
+            break;
+        case MODE_D:
+            result = 27;
+            *p1 = *p2*;
+            break;
+        case MODE_E:
+            result = 27;
+            break;
+        default:
+            result = 12;
+    }
+    return result;
+}
+```
+
+#### 3.63
+
+|              |      |                    |                        |
+|--------------|------|--------------------|------------------------|
+|              | sub  | $0x3c, %rsi        | n -= 0x3c(60)          |
+|              | cmp  | $0x5, %rsi         | compare n and 5        |
+|              | ja   | ...                | if (n > 5) goto 4005c3 |
+|              | jmpq | *0x4006f8(,%rsi,8) | goto *(0x4006f8+8\*n)  |
+| jt[0/2]      | lea  | 0x0(,%rdi,8), %rax | res = 8 * x            |
+|              | retq |                    | return                 |
+| jt[3]        | mov  | %rdi, %rax         | res = x                |
+|              | sar  | $0x3, %rax         | res >>= 3              |
+|              | retq |                    | return                 |
+| jt[4]        | mov  | %rdi, %rax         | res = x                |
+|              | shl  | $0x4, %rax         | res <<= 4              |
+|              | sub  | %rdi, %rax         | res -= x               |
+|              | mov  | %rax, %rdi         | x = res                |
+| jt[5]        | imul | %rdi, %rdi         | x = x * x              |
+| 4005c3:jt[1] | lea  | 0x4b(%rdi), %rax   | res = x + 0x4b         |
+|              | retq |                    | return                 |
+
+```C
+long switch_prob(long x, long n) {
+    long result = x;
+    switch(n) {
+        case 60:
+        case 62:
+            result = 8 * x;
+            break;
+        case 63:
+            result = x >> 3;
+            break;
+        case 64:
+            result = x * 15;
+            break;
+        case 65:
+            x = x * x;
+        default:
+            result = x + 75;
+    }
+    return result;
+}
+```
+
+#### 3.64
+
+A. $\&A[i][j][k] = x_d + L(S*T*i + T*j + k) = x_d + L((S*i + j)*T + k) $
+
+B. 
+
+| store_ele |                       |                   |
+|-----------|-----------------------|-------------------|
+| leaq      | (%rsi, %rsi, 2), %rax | res = 3 * j       |
+| leaq      | (%rsi, %rax, 4), %rax | res = j + 4 * res |
+| movq      | %rdi, %rsi            | j = i             |
+| salq      | $6, %rsi              | j <<= 6           |
+| addq      | %rsi, %rdi            | i += j            |
+| addq      | %rax, %rdi            | i += res          |
+| addq      | %rdi, %rdx            | k += i            |
+| movq      | A(,%rdx,8), %rax      | res = *(A+8\*k)   |
+| movq      | %rax, (%rcx)          | *dest = res       |
+| movl      | $3640, %eax           | res = 3640        |
+| ret       |                       | return            |
+
+```C
+k = 65*i + 13*j + k;
+res = *(A+k);
+*dest = res;
+res = 3640;
+return res;
+```
+
+显然，ST=65, T=13, RST*8=3640, 则R=7,S=5,T=13
+
+#### 3.65
+
+| .L6: |              |                       |
+|------|--------------|-----------------------|
+| movq | (%rdx), %rcx | tmp2 = *tmp1          |
+| movq | (%rax), %rsi | tmp4 = *tmp3          |
+| movq | %rsi, (%rdx) | *tmp1 = tmp4          |
+| movq | %rcx, (%rax) | *tmp3 = tmp2          |
+| addq | $8, %rdx     | tmp1 += 8             |
+| addq | $120, %rax   | tmp3 += 120           |
+| cmpq | %rdi, %rax   | compare tmp3 and tmp5 |
+
+步子小的是A[i][j]的指针，步长为一个元素的长度，步子大的是A[j][i]的指针，步长为一行元素的长度
+
+A. %rdx
+
+B. %rax
+
+C. 15
+
+#### 3.66
+
+| sum_col: |                       |                        |
+|----------|-----------------------|------------------------|
+| leaq     | 1(,%rdi,4), %r8       | tmp1 = 4*n + 1         |
+| leaq     | (%rdi,%rdi,2), %rax   | res = 3*n              |
+| movq     | %rax, %rdi            | n = res                |
+| testq    | %rax, %rax            | test res               |
+| jle      | .L4                   | if (res <= 0) goto .L4 |
+| salq     | $3, %r8               | tmp1 <<= 3             |
+| leaq     | (%rsi, %rdx, 8), %rcx | tmp2 = A + 8*j         |
+| movl     | $0, %eax              | res = 0                |
+| movl     | $0, %edx              | j = 0                  |
+| .L3:     |                       |                        |
+| addq     | (%rcx), %rax          | res += *tmp2           |
+| addq     | $1, %rdx              | ++j                    |
+| addq     | %r8, %rcx             | tmp2 += tmp1           |
+| cmpq     | %rdi, %rdx            | compare j and n        |
+| jne      | .L3                   | if (j != n) goto .L3   |
+| rep; ret |                       | return                 |
+| .L4:     |                       |                        |
+| movl     | $0, %eax              | res = 0                |
+| ret      |                       | return                 |
+
+NR(n) = 3*n
+
+NC(n) = 4*n + 1
+
+#### 3.67
+
+A. 
+
+|                      |               |
+|----------------------|---------------| 
+| 调用者栈帧           | %rsp+104      |
+| eval返回地址         | %rsp + 96(+8) |
+|                      |               |
+|                      | %rsp + 64     |
+|                      |               |
+| z                    | %rsp + 24(+8) |
+| s.p = &z = %rsp + 24 | %rsp + 16(+8) |
+| s.a[1] = y           | %rsp + 8(+8)  |
+| s.a[0] = x           | %rsp          |
+
+B. %rsp + 64
+
+C. 通过%rsp访问，执行call后，%rsp = %rsp-8, 故%rsp+24指向内容为&z，%rsp+16为y，%rsp+8为x。
+
+D. r.u[0]=y存放在*(%rdi)处，即*(%rsp+64)处。r.u[1]=x存放在*(%rdi+8)=*(%rsp+72)处。r.q=z存放在\*(%rdi+16)=\*(%rsp+80)处。
+
+E. 
+
+|                      |               |
+|----------------------|---------------| 
+| 调用者栈帧           | %rsp+104      |
+| eval返回地址         | %rsp + 96(+8) |
+|                      |               |
+| r.q                  | %rsp + 80(+8) |
+| r.u[1]               | %rsp + 72(+8) |
+| r.u[0]               | %rsp + 64(+8) |
+|                      |               |
+| z                    | %rsp + 24(+8) |
+| s.p = &z = %rsp + 24 | %rsp + 16(+8) |
+| s.a[1] = y           | %rsp + 8(+8)  |
+| s.a[0] = x           | %rsp          |
+
+F. 调用者提前在自己的栈帧里为返回值分配空间，并把地址传递过去。
+
+#### 3.68
+
+| setVal: |                 |                |
+|---------|-----------------|----------------|
+| movslq  | 8(%rsi), %rax   | long v1 = q->t |
+| addq    | 32(%rsi), %rax  | v1 += q->u     |
+| movq    | %rax, 184(%rdi) | p->y = v1      |
+| ret     |                 | return         |
+
+&(q->t) = %rsi + 8，说明4<B<=8
+
+&(q->u) = %rsi + 32, 12 < 2A <= 20
+
+&(p->y) = %rdi + 184, 176 < 4AB <= 184
+
+得A=9, B=5
+
+#### 3.69
+
+| test:  |                           |                          |
+|--------|---------------------------|--------------------------|
+| mov    | 0x120(%rsi), %ecx         | n = *(bp+0x120)       |
+| add    | (%rsi), %ecx              | n += *(bp)            |
+| lea    | (%rdi, %rdi, 4), %rax     | res = 5 * i              |
+| lea    | (%rsi, %rax, 8), %rax     | res = bp + 8 * res       |
+| mov    | 0x8(%rax), %rdx           | tmp2 = *(res+8)          |
+| movslq | %ecx, %rcx                | 符号扩展                 | 
+| mov    | %rcx, 0x10(%rax, %rdx, 8) | *(res+8\*tmp2+16) = n |
+| retq   |                           | return                   |
+
+
+A.
+
+&(bp->first) = bp
+
+&(bp->last) = bp + 288
+
+res = bp + 40 * i，故a_struct占用大小为40字节
+
+int只占用4字节，所以CNT为7，空的4字节可能是对齐需要。
+
+B.
+
+tmp2 = *(res + 8)
+
+res + 8 * tmp2 + 16 = &(ap->x[ap->idx])
+
+res + 8 = &(ap->idx), tmp2 = ap->idx
+
+res + 16 = &(ap->x), ap->idx占8个字节，又是有符号数，故为long类型
+
+而ap->x中的数据元素也占8个字节，也是有符号值，也是long类型
+
+而a_struct总共占用40字节，故ap->x长度为4
+
+具体声明如下
+
+```C
+typedef struct {
+    long idx;
+    long x[4];
+} a_struct;
+```
+
+#### 3.70
+
+A.
+
+|         |   |
+|---------|---|
+| e1.p    | 0 |
+| e1.y    | 8 | 
+| e2.x    | 0 |
+| e2.next | 8 |
+
+B. 16
+
+C. 
+
+| proc: |               |                                 |
+|-------|---------------|---------------------------------|
+| movq  | 8(%rdi), %rax | tmp1 = *(up+8) = e2.next        |
+| movq  | (%rax), %rdx  | tmp2 = *tmp1 = e1.p             |
+| movq  | (%rdx), %rdx  | tmp2 = *tmp2 = e2.x             |
+| subq  | 8(%rax), %rdx | tmp2 -= *(tmp1+8) = e2.x - e1.y |
+| movq  | %rdx, (%rdi)  | *up = up.x = tmp2                      |
+| ret   |               | return                          |
+
+up为e2类型，up.next指向e1类型，up.next.p指向long
+
+故
+
+```C
+up->e2.x = *(up->e2.next->e1.p) - up->e2.next->e1.y;
+```
+
+#### 3.71-75
+
+略，累了
